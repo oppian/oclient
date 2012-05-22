@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Window 
+          width="400" height="140"
+          initialize="onInitialise(event);"
+          xmlns:fx="http://ns.adobe.com/mxml/2009"
+          xmlns:s="library://ns.adobe.com/flex/spark"
+          xmlns:mx="library://ns.adobe.com/flex/halo"
+          minimizable="false"
+          maximizable="false"
+          resizable="false"
+          windowDeactivate="activate();"
+          alwaysInFront="true"
+          title="Current Tribe"
+          xmlns:mx1="library://ns.adobe.com/flex/mx">
+
+
+    <fx:Script>
+        <![CDATA[
+            import flash.events.Event;
+            
+            import mx.collections.ArrayCollection;
+            
+            
+            //==============================================================================
+            //
+            //   Static Property 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            // SAVE 
+            //--------------------------------------
+            
+            public static const SAVE:String = "tribes_save";
+            
+            
+            //==============================================================================
+            //
+            //   Property 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            //   Property#public 
+            //--------------------------------------
+            
+            //--------------------------------------
+            // settings 
+            //--------------------------------------
+            
+            public var settings:Settings;
+            
+            //--------------------------------------
+            // tribes 
+            //--------------------------------------
+            
+            [Bindable]
+            private var tribes:ArrayCollection;
+            
+            
+            //==============================================================================
+            //
+            //   Function 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            //   Function#public 
+            //--------------------------------------
+            
+            public function Initialise(settings:Settings, tribes:Array):void
+            {
+                this.settings = settings;
+                
+                for each (var tribe:Object in tribes)
+                {
+                    tribe.label = tribe.name;
+                }
+                
+                this.tribes = new ArrayCollection(tribes);
+            }
+            
+            public function updateSettings():void
+            {
+                settings.tribeId = tribes[tribePicker.selectedIndex].id;
+            }
+            
+            //--------------------------------------
+            //   Function#private 
+            //--------------------------------------
+            
+            private function handleCancelClick(event:Event):void
+            {
+                close();
+            }
+            
+            private function handleSaveClick(event:Event):void
+            {
+                dispatchEvent(new Event(SAVE));
+            }
+            
+            private function onInitialise(event:Event):void
+            {
+                for (var index:int = tribes.length; --index >= 0; )
+                {
+                    if (tribes[index].id == settings.tribeId)
+                    {
+                        tribePicker.selectedIndex = index;
+                        break;
+                    }
+                }
+            }
+        ]]>
+    </fx:Script>
+    <mx1:VBox>
+        <s:Form width="100%">
+            <s:FormItem label="Tribe:">
+                <s:ComboBox id="tribePicker"
+                            dataProvider="{tribes}" />
+            </s:FormItem>
+        </s:Form>
+        <mx1:HBox 
+                  width="100%"
+                  horizontalAlign="center">
+            <s:Button id="save"
+                      label="Save"
+                      click="handleSaveClick(event);" />
+            <s:Button id="cancel"
+                      label="Cancel"
+                      click="handleCancelClick(event);" />
+        </mx1:HBox>
+    </mx1:VBox>
+
+</s:Window>

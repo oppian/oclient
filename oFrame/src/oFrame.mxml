@@ -1,0 +1,730 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:WindowedApplication 
+                       initialize="onInitialize(event);"
+                       keyDown="myKeyDownHandler(event);"
+                       resize="onResize(event)"
+                       xmlns:fx="http://ns.adobe.com/mxml/2009"
+                       xmlns:s="library://ns.adobe.com/flex/spark"
+                       xmlns:mx="library://ns.adobe.com/flex/halo"
+                       xmlns:ui="com.oppian.oframe.ui.*"
+                       showStatusBar="false"
+                       applicationComplete="onCompletion(event);"
+                       viewSourceURL="srcview/index.html"
+                       xmlns:mx1="library://ns.adobe.com/flex/mx">
+
+    <fx:Declarations>
+        <!-- Services -->
+        <s:HTTPService id="service_login"
+                       url="http://{settings.oServerAddress}/account/login/"
+                       useProxy="false"
+                       method="POST"
+                       resultFormat="text"
+                       result="loginResult(event);"
+                       fault="httpFault(event);">
+            <s:request xmlns="">
+                <email>{settings.username}</email>
+                <password>{settings.password}</password>
+            </s:request>
+        </s:HTTPService>
+
+        <s:HTTPService id="service_photos"
+                       url="http://{settings.oServerAddress}/tribes/tribe/{tribeSlug}/photos/"
+                       useProxy="false"
+                       method="GET"
+                       resultFormat="text"
+                       result="onPhotoGet(event);"
+                       fault="httpFault(event);">
+        </s:HTTPService>
+
+        <s:HTTPService id="service_tribes"
+                       url="http://{settings.oServerAddress}/tribes/your_tribes/"
+                       useProxy="false"
+                       method="GET"
+                       resultFormat="text"
+                       result="onTribesGet(event);"
+                       fault="httpFault(event);">
+        </s:HTTPService>
+    </fx:Declarations>
+
+    <fx:Script>
+        <![CDATA[
+            import com.oppian.oframe.utils.SFDoubleClickManager;
+            
+            import flash.display.Bitmap;
+            import flash.display.StageDisplayState;
+            import flash.events.Event;
+            import flash.utils.Timer;
+            
+            import mx.rpc.events.FaultEvent;
+            import mx.rpc.events.ResultEvent;
+            import mx.rpc.http.mxml.HTTPService;
+            
+            
+            //==============================================================================
+            //
+            //   Static Property 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            // INITIALISED_KEY 
+            //--------------------------------------
+            
+            public static const INITIALISED_KEY:String = "initialised";
+            
+            //--------------------------------------
+            // PASSWORD_KEY 
+            //--------------------------------------
+            
+            public static const PASSWORD_KEY:String    = "password";
+            
+            //--------------------------------------
+            // PHOTO_DISPLAY_INTERVAL 
+            //--------------------------------------
+            
+            public static const PHOTO_DISPLAY_INTERVAL:int = 5 * 1000; // in seconds
+            
+            //--------------------------------------
+            // RETRY_LOGIN_INTERVAL 
+            //--------------------------------------
+            
+            public static const RETRY_LOGIN_INTERVAL:int   = 60 * 1000; // in seconds
+            
+            //--------------------------------------
+            // SERVER_KEY 
+            //--------------------------------------
+            
+            public static const SERVER_KEY:String      = "server";
+            
+            //--------------------------------------
+            // TRIBE_KEY 
+            //--------------------------------------
+            
+            public static const TRIBE_KEY:String       = "tribe";
+            
+            //--------------------------------------
+            // USER_KEY 
+            //--------------------------------------
+            
+            public static const USER_KEY:String        = "user";
+            
+            //--------------------------------------
+            // is_in_tablet_mode 
+            //--------------------------------------
+            
+            public static const is_in_tablet_mode:Boolean = false;
+            
+            
+            //==============================================================================
+            //
+            //   Property 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            //   Property#private 
+            //--------------------------------------
+            
+            //--------------------------------------
+            // _loader 
+            //--------------------------------------
+            
+            private var _loader:Loader;
+            
+            //--------------------------------------
+            // configWindow 
+            //--------------------------------------
+            
+            private var configWindow:ConfigWindow;
+            
+            //--------------------------------------
+            // doubleCLickManager 
+            //--------------------------------------
+            
+            private var doubleCLickManager:SFDoubleClickManager = null;
+            
+            //--------------------------------------
+            // json_photos 
+            //--------------------------------------
+            
+            private var json_photos:Array;
+            
+            //--------------------------------------
+            // json_tribes 
+            //--------------------------------------
+            
+            private var json_tribes:Array;
+            
+            //--------------------------------------
+            // loginTimer 
+            //--------------------------------------
+            
+            private var loginTimer:Timer;
+            
+            //--------------------------------------
+            // nextPhoto 
+            //--------------------------------------
+            
+            private var nextPhoto:Timer;
+            
+            //--------------------------------------
+            // settings 
+            //--------------------------------------
+            
+            [Bindable]
+            private var settings:Settings;
+            
+            //--------------------------------------
+            // tribeSlug 
+            //--------------------------------------
+            
+            [Bindable]
+            private var tribeSlug:String = "family";
+            
+            //--------------------------------------
+            // tribeWindow 
+            //--------------------------------------
+            
+            private var tribeWindow:TribeWindow;
+            
+            
+            //==============================================================================
+            //
+            //   Function 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            //   Function#public 
+            //--------------------------------------
+            
+            public function httpFault(event:FaultEvent):void
+            {
+                var faultstring:String = event.fault.faultString;
+                notifier.queueNotification("Could not connect to service.\nWill try again later.");
+                log("HTTP fault: " + faultstring);
+                loginTimer.start();
+            }
+            
+            public function loadPhotoList():void
+            {
+                service_photos.headers = {'X-Requested-With':'XMLHttpRequest'};
+                log("getting url " + service_photos.url);
+                service_photos.send();
+            }
+            
+            public function loadTribesList():void
+            {
+                service_tribes.headers = {'X-Requested-With':'XMLHttpRequest'};
+                log("getting url " + service_tribes.url);
+                service_tribes.send();
+            }
+            
+            public function loginResult(event:ResultEvent):void
+            {
+                var json:String = "[" + event.result.toString() + "]";
+                var success:Boolean = false;
+                
+                try
+                {
+                    var result:Object = JSON.parse(json);
+                    success = result[0].message.indexOf("failed") < 0;
+                }
+                catch (e:Error)
+                {
+                }
+                
+                log("Login response: " + json);
+                
+                if (success)
+                {
+                    loadTribesList();
+                }
+                else
+                {
+                    notifier.queueNotification("Could not log in to service.\nWill try again later.");
+                    loginTimer.start();
+                }
+            
+            }
+            
+            //--------------------------------------
+            //   Function#private 
+            //--------------------------------------
+            
+            private function cancel():void
+            {
+                service_tribes.cancel();
+                service_photos.cancel();
+                service_login.cancel();
+                nextPhoto.stop();
+                json_photos = new Array();
+            }
+            
+            private function displayedPhoto():Image
+            {
+                if (currentState == "photo0")
+                {
+                    return photo0;
+                }
+                return photo1;
+            }
+            
+            private function doNextJsonPhoto():void
+            {
+                if (json_photos.length == 0)
+                {
+                    log("Finisihed initialisation");
+                    loadTribesList();
+                }
+                else
+                {
+                    var photoFields:Object = json_photos[0];
+                    var url:String = "http://" + settings.oServerAddress + photoFields.image;
+                    log("fetching " + url);
+                    
+                    hiddenPhoto().load(url);
+                    log("Loading picture " + photoFields.image + "...");
+                }
+            }
+            
+            private function doNextPhoto():void
+            {
+                json_photos.splice(0, 1);
+                log("Number of photos: " + json_photos.length.toString());
+                doNextJsonPhoto();
+                nextPhoto.stop();
+            }
+            
+            private function doubleClick(event:MouseEvent):void
+            {
+                log("double click")
+                toggleFullScreen();
+            }
+            
+            private function fullScreenHandler(evt:FullScreenEvent):void
+            {
+                if (evt.fullScreen)
+                {
+                    log("Entering fullscreen mode");
+                }
+                else
+                {
+                    log("Leaving fullscreen mode");
+                }
+                resizePhoto(displayedPhoto());
+            }
+            
+            private function getPersistentValue(name:String):String
+            {
+                var value:String = null;
+                var bytes:ByteArray = EncryptedLocalStore.getItem(name);
+                
+                if (bytes != null)
+                {
+                    value = bytes.readUTFBytes(bytes.bytesAvailable);
+                }
+                return value;
+            }
+            
+            private function hiddenPhoto():Image
+            {
+                if (currentState == "photo0")
+                {
+                    return photo1;
+                }
+                return photo0;
+            }
+            
+            private function loadSettings():void
+            {
+                settings.oServerAddress = getPersistentValue(SERVER_KEY);
+                settings.username = getPersistentValue(USER_KEY);
+                settings.password = getPersistentValue(PASSWORD_KEY);
+                settings.tribeId = Math.min(1, int(getPersistentValue(TRIBE_KEY)));
+            }
+            
+            private function log(status:String):void
+            {
+                trace(status);
+            }
+            
+            
+            private function myKeyDownHandler(event:KeyboardEvent):void
+            {
+                if (is_in_tablet_mode)
+                {
+                    event.preventDefault();
+                    
+                    if (event.keyCode == Keyboard.ESCAPE)
+                    {
+                        log("ignoring escape key"); // not working on mac
+                    }
+                }
+            }
+            
+            private function onCompletion(evt:Event):void
+            {
+                stage.addEventListener(FullScreenEvent.FULL_SCREEN, fullScreenHandler);
+                
+                if (is_in_tablet_mode)
+                {
+                    stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+                    stage.nativeWindow.alwaysInFront = true;
+                }
+            }
+            
+            
+            private function onInitialize(evt:Event):void
+            {
+                log("Initializing...");
+                settings = new Settings();
+                
+                photo0.addEventListener(Event.COMPLETE, onPhotoFetchComplete);
+                photo0.addEventListener(IOErrorEvent.IO_ERROR, onPhotoFetchError);
+                photo1.addEventListener(Event.COMPLETE, onPhotoFetchComplete);
+                photo1.addEventListener(IOErrorEvent.IO_ERROR, onPhotoFetchError);
+                
+                nextPhoto = new Timer(PHOTO_DISPLAY_INTERVAL, 1)
+                nextPhoto.addEventListener(TimerEvent.TIMER, onNextPhoto);
+                function onNextPhoto(e:Event):void
+                {
+                    doNextPhoto();
+                }
+                
+                loginTimer = new Timer(RETRY_LOGIN_INTERVAL, 1);
+                loginTimer.addEventListener(TimerEvent.TIMER, onLoginTimer);
+                function onLoginTimer(e:Event):void
+                {
+                    startLogin();
+                }
+                
+                loadSettings();
+                
+                var initialised:String = getPersistentValue(INITIALISED_KEY);
+                
+                if (initialised != null)
+                {
+                    startLogin();
+                }
+                else
+                {
+                    var myLoader:URLLoader = new URLLoader();
+                    myLoader.addEventListener(IOErrorEvent.IO_ERROR, ignoreError);
+                    myLoader.addEventListener(Event.COMPLETE, processXML);
+                    myLoader.load(new URLRequest("assets/defaults.xml"));
+                    function processXML(e:Event):void
+                    {
+                        var defaults:XML = new XML(e.target.data);
+                        persistValue(INITIALISED_KEY, "true");
+                        settings.oServerAddress = defaults.server;
+                        settings.username = defaults.user;
+                        settings.password = defaults.password;
+                        settings.tribeId = defaults.tribe;
+                        startLogin();
+                    }
+                    function ignoreError(e:Event):void
+                    {
+                        startLogin();
+                    }
+                }
+                
+                doubleClickEnabled = true;
+                
+                doubleCLickManager = new SFDoubleClickManager(images);
+                doubleCLickManager.addEventListener(MouseEvent.CLICK, singleClick);
+                doubleCLickManager.addEventListener(MouseEvent.DOUBLE_CLICK, doubleClick);
+            }
+            
+            private function onPhotoFetchComplete(evt:Event):void
+            {
+                togglePhotoVisibilty();
+                
+                if (json_photos.length > 0)
+                {
+                    var photoFields:Object = json_photos[0];
+                    log("Processing picture " + photoFields.title + "...");
+                    nextPhoto.start();
+                }
+            }
+            
+            private function onPhotoFetchError(evt:Event):void
+            {
+                var photoFields:Object = json_photos[0];
+                log("Couldn't load picture " + photoFields.caption + " - " + photoFields.image);
+                notifier.queueNotification("Could not load picture \"" + photoFields.caption + "\"");
+                doNextPhoto();
+            }
+            
+            private function onPhotoGet(event:ResultEvent):void
+            {
+                var jsonString:String = "[" + event.result.toString() + "]";
+                
+                try
+                {
+                    json_photos = JSON.parse(jsonString)[0].photos;
+                    log("Number of photos: " + json_photos.length.toString());
+                    doNextJsonPhoto();
+                }
+                catch (e:Error)
+                {
+                    notifier.queueNotification("Could not find photos.\nWill try again later.");
+                    log("Photo list error: " + e.message);
+                }
+            }
+            
+            private function onResize(evt:Event):void
+            {
+                resizePhoto(displayedPhoto());
+            }
+            
+            private function onTribesGet(event:ResultEvent):void
+            {
+                var jsonString:String = "[" + event.result.toString() + "]";
+                
+                try
+                {
+                    json_tribes = JSON.parse(jsonString)[0].tribes;
+                    log("Number of tribes: " + json_tribes.length.toString());
+                    
+                    var found:Boolean = false;
+                    
+                    for each (var tribe:Object in json_tribes)
+                    {
+                        if (tribe.id == settings.tribeId)
+                        {
+                            log("found tribe (" + tribe.id + ") : name (" + tribe.name + ") : slug (" + tribe.slug + ")");
+                            tribeSlug = tribe.slug;
+                            found = true;
+                        }
+                    }
+                    
+                    if (!found)
+                    {
+                        settings.tribeId = json_tribes[0].id;
+                        tribeSlug = json_tribes[0].slug;
+                    }
+                    
+                    loadPhotoList();
+                }
+                catch (e:Error)
+                {
+                    notifier.queueNotification("Could not find tribes.\nWill try again later.");
+                    log("Tribe list error: " + e.message);
+                    loginTimer.start();
+                }
+            }
+            
+            private function openTribeWindow():void
+            {
+                tribeWindow = new TribeWindow();
+                tribeWindow.Initialise(settings, json_tribes);
+                tribeWindow.addEventListener(TribeWindow.SAVE, updateTribe, false, 0, true);
+                tribeWindow.open(true);
+            }
+            
+            private function openWindow():void
+            {
+                configWindow = new ConfigWindow();
+                configWindow.Initialise(settings);
+                configWindow.addEventListener(ConfigWindow.SAVE, updateSettings, false, 0, true);
+                configWindow.open(true);
+            }
+            
+            private function persistValue(name:String, value:String):void
+            {
+                if (value && value.length > 0)
+                {
+                    var bytes:ByteArray = new ByteArray();
+                    bytes.writeUTFBytes(value);
+                    EncryptedLocalStore.setItem(name, bytes);
+                    log("Persisting " + name + " : " + value);
+                }
+                else
+                {
+                    EncryptedLocalStore.removeItem(name);
+                    log("Removing " + name);
+                }
+            }
+            
+            private function resizePhoto(photo:Image):void
+            {
+                if (photo)
+                {
+                    var photoScale:Number = 1;
+                    var bitmap:Bitmap = photo.content as Bitmap;
+                    
+                    if (bitmap)
+                    {
+                        photoScale = Math.min(width / bitmap.width, height / bitmap.height);
+                        bitmap.smoothing = true; // force nice (but slower) bitmap scaling
+                        photo.x = (width - bitmap.width * photoScale) / 2;
+                        photo.y = (height - bitmap.height * photoScale) / 2;
+                    }
+                    photo.scaleX = photoScale;
+                    photo.scaleY = photoScale;
+                }
+                
+                if (splash)
+                {
+                    var splashBitmap:Bitmap = splash.content as Bitmap;
+                    splashBitmap.smoothing = true;
+                    var splashScale:Number = Math.min(width / splashBitmap.width, height / splashBitmap.height);
+                    splash.scaleX = splashScale;
+                    splash.scaleY = splashScale;
+                    splash.x = (width - splashBitmap.width * splashScale) / 2;
+                    splash.y = (height - splashBitmap.height * splashScale) / 2;
+                }
+            }
+            
+            private function saveSettings():void
+            {
+                persistValue(SERVER_KEY, settings.oServerAddress);
+                persistValue(USER_KEY, settings.username);
+                persistValue(PASSWORD_KEY, settings.password);
+                persistValue(TRIBE_KEY, settings.tribeId.toString());
+            }
+            
+            private function singleClick(event:MouseEvent):void
+            {
+                log("single click")
+            }
+            
+            private function startLogin():void
+            {
+                loginTimer.stop();
+                service_login.headers = {'X-Requested-With':'XMLHttpRequest'};
+                service_login.send();
+                log("Connecting to " + service_login.url + "...");
+            }
+            
+            private function toggleFullScreen():void
+            {
+                if (!is_in_tablet_mode)
+                {
+                    if (stage.displayState == StageDisplayState.FULL_SCREEN_INTERACTIVE)
+                    {
+                        stage.displayState = StageDisplayState.NORMAL;
+                    }
+                    else
+                    {
+                        stage.displayState = StageDisplayState.FULL_SCREEN_INTERACTIVE;
+                    }
+                }
+            }
+            
+            private function togglePhotoVisibilty():void
+            {
+                var nextPhoto:Image;
+                var nextState:String;
+                
+                if (currentState == "photo0")
+                {
+                    nextPhoto = photo1;
+                    nextState = "photo1";
+                }
+                else
+                {
+                    nextPhoto = photo0;
+                    nextState = "photo0";
+                }
+                
+                resizePhoto(nextPhoto);
+                currentState = nextState;
+            }
+            
+            private function updateSettings(evt:Event):void
+            {
+                if (configWindow)
+                {
+                    cancel();
+                    configWindow.updateSettings();
+                    configWindow.close();
+                    saveSettings();
+                    startLogin();
+                }
+            }
+            
+            private function updateTribe(evt:Event):void
+            {
+                if (tribeWindow)
+                {
+                    cancel();
+                    tribeWindow.updateSettings();
+                    
+                    tribeWindow.close();
+                    saveSettings();
+                    startLogin();
+                }
+            }
+        ]]>
+    </fx:Script>
+    <fx:Style source="oFrame.css" />
+    <s:states>
+        <s:State name="splash" />
+        <s:State name="photo0" />
+        <s:State name="photo1" />
+    </s:states>
+    <s:transitions>
+        <s:Transition>
+            <s:Fade targets="{[photo0, photo1, splash_background, splash]}"
+                    duration="2000" />
+        </s:Transition>
+    </s:transitions>
+
+    <!-- User Interface -->
+    <s:Label id="background"
+             x="0" y="0" width="2048" height="2048"
+             backgroundColor="black" />
+
+    <s:Group id="images"
+             x="0" y="0" width="2048" height="2048">
+        <mx1:Image id="photo0"
+                   visible.splash="false"
+                   visible.photo0="true"
+                   visible.photo1="false" />
+        <mx1:Image id="photo1"
+                   visible.splash="false"
+                   visible.photo0="false"
+                   visible.photo1="true" />
+
+        <s:Label id="splash_background"
+                 x="0" y="0" width="2048" height="2048"
+                 backgroundColor="white"
+                 visible.photo0="false"
+                 visible.photo1="false" />
+        <mx1:Image id="splash"
+                   source="@Embed(source='assets/splash.png')"
+                   autoLoad="true"
+                   scaleContent="true"
+                   alpha="1"
+                   visible.splash="true"
+                   visible.photo0="false"
+                   visible.photo1="false" />
+    </s:Group>
+
+    <!-- the top line -->
+    <mx1:HBox 
+              width="100%" height="10%">
+        <mx1:HBox 
+                  width="100%" height="10%">
+            <mx1:HBox 
+                      width="75%" height="100%"
+                      verticalAlign="top">
+                <s:Button 
+                          width="48"
+                          label="S"
+                          click="openWindow()" />
+                <s:Button 
+                          width="48"
+                          label="T"
+                          click="openTribeWindow()" />
+            </mx1:HBox>
+            <ui:notifier id="notifier"
+                         width="25%" height="100%"
+                         minHeight="180"
+                         minWidth="300" />
+        </mx1:HBox>
+    </mx1:HBox>
+
+</s:WindowedApplication>

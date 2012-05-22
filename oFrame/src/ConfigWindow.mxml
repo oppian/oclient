@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Window 
+          width="450" height="275"
+          initialize="onInitialise(event);"
+          xmlns:fx="http://ns.adobe.com/mxml/2009"
+          xmlns:s="library://ns.adobe.com/flex/spark"
+          xmlns:mx="library://ns.adobe.com/flex/halo"
+          minimizable="false"
+          maximizable="false"
+          resizable="false"
+          windowDeactivate="activate();"
+          alwaysInFront="true"
+          title="Settings"
+          xmlns:mx1="library://ns.adobe.com/flex/mx">
+
+
+    <fx:Script>
+        <![CDATA[
+            import flash.events.Event;
+            
+            
+            //==============================================================================
+            //
+            //   Static Property 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            // RESET 
+            //--------------------------------------
+            
+            public static const RESET:String = "reset";
+            
+            //--------------------------------------
+            // SAVE 
+            //--------------------------------------
+            
+            public static const SAVE:String  = "save";
+            
+            
+            //==============================================================================
+            //
+            //   Property 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            //   Property#public 
+            //--------------------------------------
+            
+            //--------------------------------------
+            // settings 
+            //--------------------------------------
+            
+            public var settings:Settings;
+            
+            
+            //==============================================================================
+            //
+            //   Function 
+            //
+            //==============================================================================
+            
+            //--------------------------------------
+            //   Function#public 
+            //--------------------------------------
+            
+            public function Initialise(settings:Settings):void
+            {
+                this.settings = settings;
+            }
+            
+            public function updateSettings():void
+            {
+                if (settings)
+                {
+                    if (server)
+                    {
+                        settings.oServerAddress = server.text;
+                    }
+                    
+                    if (user)
+                    {
+                        settings.username = user.text;
+                    }
+                    
+                    if (password)
+                    {
+                        settings.password = password.text;
+                    }
+                }
+            }
+            
+            //--------------------------------------
+            //   Function#private 
+            //--------------------------------------
+            
+            private function handleCancelClick(event:Event):void
+            {
+                close();
+            }
+            
+            private function handleResetClick(event:Event):void
+            {
+                var myLoader:URLLoader = new URLLoader();
+                myLoader.addEventListener(IOErrorEvent.IO_ERROR, ignoreError);
+                myLoader.addEventListener(Event.COMPLETE, processXML);
+                myLoader.load(new URLRequest("assets/defaults.xml"));
+                function processXML(e:Event):void
+                {
+                    var defaults:XML = new XML(e.target.data);
+                    server.text = defaults.server;
+                    user.text = defaults.user;
+                    password.text = defaults.password;
+                }
+                function ignoreError(e:Event):void
+                {
+                }
+            }
+            
+            private function handleSaveClick(event:Event):void
+            {
+                dispatchEvent(new Event(SAVE));
+            }
+            
+            private function onInitialise(event:Event):void
+            {
+                if (settings)
+                {
+                    server.text = settings.oServerAddress;
+                    user.text = settings.username;
+                    password.text = settings.password;
+                }
+            }
+        ]]>
+    </fx:Script>
+    <mx1:VBox>
+        <s:Form width="100%">
+            <s:FormItem 
+                        label="Server"
+                        required="true">
+                <s:TextInput id="server" />
+            </s:FormItem>
+            <s:FormItem 
+                        label="User"
+                        required="true">
+                <s:TextInput id="user" />
+            </s:FormItem>
+            <s:FormItem 
+                        label="Password"
+                        required="false">
+                <s:TextInput id="password"
+                             displayAsPassword="true" />
+            </s:FormItem>
+        </s:Form>
+        <mx1:HBox 
+                  width="100%"
+                  horizontalAlign="center">
+            <s:Button id="save"
+                      label="Save"
+                      click="handleSaveClick(event);" />
+            <s:Button id="reset"
+                      label="Reset"
+                      click="handleResetClick(event);" />
+            <s:Button id="cancel"
+                      label="Cancel"
+                      click="handleCancelClick(event);" />
+        </mx1:HBox>
+    </mx1:VBox>
+
+</s:Window>

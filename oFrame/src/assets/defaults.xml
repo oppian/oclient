@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<defaults>
+    <server>oppster-dev.oppian.com</server>
+    <user>john_oppster@oppian.com</user>
+    <password>oppsterpass</password>
+    <tribe>1</tribe>
+</defaults>

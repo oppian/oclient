@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mx:HBox xmlns:mx="http://www.adobe.com/2006/mxml"
+	xmlns:s="library://ns.adobe.com/flex/spark"
+	verticalAlign="top"
+	width="100%"
+	paddingLeft="10" paddingRight="10" paddingTop="10" paddingBottom="10"
+ 	creationComplete="onCreationComplete();"
+	visible="false"
+	>
+	
+	<mx:Script>
+		<![CDATA[
+			import flash.events.Event;
+			import flash.utils.Timer;
+			
+			private static const MAX_QUEUED_NOTIFICATIONS:Number = 10;
+			
+			private var notifications:Vector.<String> = new Vector.<String>();
+			private var nextNote:Timer = new Timer(4000,0);
+
+			[Bindable] private var messageText:String;
+			
+			private function onCreationComplete():void
+			{
+				nextNote.addEventListener(TimerEvent.TIMER, onNextNote);
+			}
+			
+			public function queueNotification(message:String):void
+			{
+				if (notifications.length<MAX_QUEUED_NOTIFICATIONS)
+				{
+					notifications.push(message);
+					if (notifications.length==1)
+					{
+						doNextNote();
+					}
+				}
+			}
+			
+			private function onNextNote(evt:Event):void
+			{
+				notifications.splice(0,1);
+				doNextNote();
+			}
+			
+			private function doNextNote():void
+			{
+				if (notifications.length==0)
+				{
+					nextNote.stop();
+					visible = false;
+				}
+				else
+				{
+					messageText = notifications[0];
+					nextNote.start();
+					visible=true;
+				}
+			}
+		]]>
+	</mx:Script>
+
+	<s:Panel id="panel"
+			 title="Notification"
+			 skinClass="skins.homer.notifier"
+			 contentBackgroundColor="#F0EBD2"
+			 width="100%"  height="100%"
+			 horizontalCenter="0" verticalCenter="0">
+		<s:TextArea id="message"
+					left="16" right="16" top="16" bottom="16"
+					contentBackgroundAlpha="0" borderAlpha="0"
+					verticalScrollPolicy="off"
+					width="100%" textAlign="center">
+			<s:text>{messageText}</s:text>
+		</s:TextArea>
+	</s:Panel>
+
+</mx:HBox>

@@ -1,0 +1,14 @@
+/* CSS file */
+@namespace s "library://ns.adobe.com/flex/spark";
+@namespace mx "library://ns.adobe.com/flex/halo";
+
+
+global
+{
+	fontSize: 24;
+	verticalAlign: middle;
+	textAlign: left;
+	contentBackgroundColor: #ffffff;
+	symbolColor: #000000;
+	color: #000000;
+}

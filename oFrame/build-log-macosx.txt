@@ -1,0 +1,25 @@
+Uninstall
+---------
+Doing install/uninstall stage
+On Mac
+Closing the app, if running
+No matching processes belonging to you were found
+CMD: [killall -v -e -z -SIGKILL -c oFrame] ret 1
+Error(1): Command returned error
+Closing the installer, if running
+No matching processes belonging to you were found
+CMD: [killall -v -e -z -SIGKILL -c Install oFrame] ret 1
+Error(1): Command returned error
+No matching processes belonging to you were found
+CMD: [killall -v -e -z -SIGKILL -c Adobe AIR Application Installer] ret 1
+Error(1): Command returned error
+Doing uninstall...
+Checking if "/Applications/oFrame.app" exists
+CMD: [rm -fr /Applications/oFrame.app] ret 0
+Unmounting oFrame DMG
+Doing uninstall...
+Checking if "/Applications/oFrame.app" exists
+CMD: [rm -fr /Applications/oFrame.app] ret 0
+Finished uninstall
+
+
